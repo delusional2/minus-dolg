@@ -124,7 +124,7 @@ code{font-family:var(--mono);font-size:12px;background:var(--accent-soft);paddin
 
 <div class="wrap">
   <header class="span2">
-    <div><h1>Минус долг</h1><div class="sub" id="weekLabel"></div></div>
+    <div><h1>Минус долг</h1><div class="sub" id="weekLabel"></div><div class="sub" id="syncState">только на этом телефоне</div></div>
   </header>
 
   <div id="demoBar" class="demo span2" hidden>
@@ -231,6 +231,25 @@ code{font-family:var(--mono);font-size:12px;background:var(--accent-soft);paddin
     </div>
     <button id="saveSet">Сохранить</button>
     <p class="msg" id="setMsg"></p>
+    <div id="cloudBox" style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px">
+      <h2 style="font-size:14px">База данных</h2>
+      <p class="note" id="cloudState"></p>
+      <div id="cloudCfg" class="in" style="padding:0;gap:8px" hidden>
+        <input id="cUrl" placeholder="Project URL: https://xxxx.supabase.co" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Project URL">
+        <input id="cKey" placeholder="anon / publishable key" autocapitalize="off" autocorrect="off" spellcheck="false" aria-label="Ключ">
+        <button id="cSave">Подключить базу</button>
+      </div>
+      <div id="cloudAuth" class="in" style="padding:0;gap:8px" hidden>
+        <input id="cEmail" type="email" placeholder="Почта" autocapitalize="off" autocomplete="username" aria-label="Почта">
+        <input id="cPass" type="password" placeholder="Пароль (от 6 символов)" autocomplete="current-password" aria-label="Пароль">
+        <div class="row"><button id="cLogin">Войти</button><button class="ghost" id="cSignup">Создать аккаунт</button></div>
+      </div>
+      <div id="cloudUser" class="row" hidden>
+        <button class="ghost" id="cSync">Обновить</button>
+        <button class="ghost" id="cLogout">Выйти</button>
+      </div>
+      <p class="msg" id="cloudMsg"></p>
+    </div>
     <div id="resetBox" style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px">
       <button class="ghost" id="resetBtn" style="color:var(--bad)">Удалить все траты и начать с нуля</button>
       <div id="resetConfirm" class="row" hidden>
@@ -242,6 +261,8 @@ code{font-family:var(--mono);font-size:12px;background:var(--accent-soft);paddin
   </div>
 </div>
 
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
 (function(){
 const CATS=["Еда вне дома","Девушка","Такси","Связь","Транспорт","Маркетплейсы","Подписки","Продукты","Переводы","Другое","Долг"];
@@ -270,19 +291,66 @@ const LS="minus-dolg-v1";
 /* ---------- storage ---------- */
 function lsLoad(){try{const d=JSON.parse(localStorage.getItem(LS)||"null");if(d){tx=d.tx||[];settings=Object.assign(settings,d.settings||{});}}catch(e){}}
 function lsSave(){try{localStorage.setItem(LS,JSON.stringify({tx,settings}));}catch(e){}}
-function errText(e){return e&&e.code==="quota_exceeded"?"Хранилище заполнено. Удали старые траты, чтобы добавлять новые.":"Не получилось сохранить. Попробуй ещё раз через минуту.";}
+function errText(e){return e&&e.code==="quota_exceeded"?"Хранилище заполнено. Удали старые траты, чтобы добавлять новые.":"Не получилось сохранить в базу. Проверь интернет и попробуй ещё раз.";}
+
+/* ---------- cloud (Supabase) ---------- */
+let sb=null, user=null;
+const CFG_KEY="minus-dolg-cloud";
+function cloudCfg(){
+  try{const c=JSON.parse(localStorage.getItem(CFG_KEY)||"null");if(c&&c.url&&c.key)return c;}catch(e){}
+  const g=window.MD_CONFIG;return g&&g.url&&g.key?g:null;
+}
+const online=()=>!!(sb&&user);
+const row=t=>({user_id:user.id,id:t.id,amount:t.amount,name:t.name,cat:t.cat,ts:t.ts,src:t.src||""});
+async function cloudInit(){
+  sb=null;user=null;
+  const c=cloudCfg();
+  if(!c||!window.supabase)return;
+  try{
+    sb=window.supabase.createClient(c.url.trim(),c.key.trim(),{auth:{persistSession:true,autoRefreshToken:true,storageKey:"minus-dolg-auth"}});
+    const {data}=await sb.auth.getSession();user=data&&data.session?data.session.user:null;
+  }catch(e){sb=null;user=null;}
+}
+async function cloudPull(mergeLocal){
+  if(!online())return;
+  const local=mergeLocal?[...tx]:[];const localSettings=Object.assign({},settings);
+  const [a,b]=await Promise.all([sb.from("tx").select("id,amount,name,cat,ts,src").limit(10000),sb.from("settings").select("data").eq("user_id",user.id).maybeSingle()]);
+  if(a.error)throw a.error;
+  tx=a.data.map(r=>({id:r.id,amount:+r.amount,name:r.name,cat:r.cat,ts:+r.ts,src:r.src}));
+  if(!b.error&&b.data&&b.data.data)settings=Object.assign({},DEF,b.data.data);
+  else if(localSettings.income){settings=localSettings;await sb.from("settings").upsert({user_id:user.id,data:settings});}
+  if(mergeLocal){
+    const have=new Set(tx.map(t=>t.id));const missing=local.filter(t=>!have.has(t.id)&&!String(t.id).startsWith("demo"));
+    if(missing.length){const r=await sb.from("tx").upsert(missing.map(row),{onConflict:"user_id,id"});if(!r.error)tx=tx.concat(missing);}
+  }
+  lsSave();demo=!tx.length;render();
+}
+function renderCloud(){
+  const c=cloudCfg();
+  $("cloudCfg").hidden=!!c;$("cloudAuth").hidden=!(c&&!user);$("cloudUser").hidden=!user;
+  $("cloudState").textContent=!c?"Сейчас траты хранятся только на этом телефоне. Подключи бесплатную базу Supabase, чтобы они сохранялись в облаке (инструкция в README репозитория)."
+    :!sb?"Не получилось подключиться к базе. Проверь адрес и ключ или интернет."
+    :!user?"База подключена. Войди или создай аккаунт: траты увидишь только ты."
+    :`Вход выполнен: ${user.email}. Траты сохраняются в облаке.`;
+  const pill=$("syncState");if(pill){pill.textContent=user?"сохраняется в облаке":"только на этом телефоне";pill.className="sub "+(user?"ok-t":"");}
+}
+
 async function putTx(t){
   if(db){await db.collection("tx").doc(t.id).set(t);return;}
+  if(online()){const {error}=await sb.from("tx").upsert(row(t),{onConflict:"user_id,id"});if(error)throw error;}
   if(!tx.find(x=>x.id===t.id))tx.push(t);lsSave();
 }
 async function delTx(id){
   if(db){try{await db.collection("tx").doc(id).delete();}catch(e){}return;}
+  if(online()){const {error}=await sb.from("tx").delete().eq("id",id);if(error){alertMsg(errText(error));return;}}
   tx=tx.filter(x=>x.id!==id);lsSave();render();
 }
 async function catTx(id,cat){
   if(db){try{await db.collection("tx").doc(id).update({cat});}catch(e){}return;}
+  if(online()){const {error}=await sb.from("tx").update({cat}).eq("id",id);if(error){alertMsg(errText(error));return;}}
   const t=tx.find(x=>x.id===id);if(t){t.cat=cat;lsSave();render();}
 }
+function alertMsg(m){const el=$("debtNote");if(el)el.textContent=m;}
 
 /* ---------- parsing ---------- */
 function hash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return "s"+(h>>>0).toString(36);}
@@ -524,15 +592,43 @@ $("resetBtn").onclick=()=>{$("resetText").textContent=tx.length?`Удалить 
 $("resetNo").onclick=()=>{$("resetConfirm").hidden=true;};
 $("resetYes").onclick=async()=>{
   $("resetYes").disabled=true;
-  try{if(db){for(const t of [...tx])await db.collection("tx").doc(t.id).delete();}else{tx=[];lsSave();}}
+  try{if(db){for(const t of [...tx])await db.collection("tx").doc(t.id).delete();}
+    else if(online()){const {error}=await sb.from("tx").delete().eq("user_id",user.id);if(error)throw error;}
+    else{tx=[];lsSave();}}
   catch(e){$("resetText").textContent="Не всё удалилось. Попробуй ещё раз.";$("resetYes").disabled=false;return;}
   tx=[];lsSave();$("resetYes").disabled=false;$("resetConfirm").hidden=true;$("setMsg").textContent="Все траты удалены.";render();
 };
 $("saveSet").onclick=async()=>{
   const n={};for(const id in SF)n[SF[id]]=+$(id).value||0;settings=n;
   if(db){try{await db.doc("settings/main").set(settings);}catch(e){$("setMsg").textContent=errText(e);return;}}
+  if(online()){const {error}=await sb.from("settings").upsert({user_id:user.id,data:settings});if(error){$("setMsg").textContent=errText(error);return;}}
   lsSave();demo=false;render();$("setMsg").textContent="Сохранено.";setTimeout(closeSheets,600);
 };
+
+/* cloud UI */
+$("cSave").onclick=async()=>{
+  const url=$("cUrl").value.trim(),key=$("cKey").value.trim();
+  if(!/^https:\/\/.+/.test(url)||key.length<20){$("cloudMsg").textContent="Вставь Project URL (начинается с https://) и ключ из Supabase.";return;}
+  try{localStorage.setItem(CFG_KEY,JSON.stringify({url,key}));}catch(e){}
+  await cloudInit();renderCloud();$("cloudMsg").textContent=sb?"База подключена. Теперь войди или создай аккаунт.":"";
+};
+async function auth(signup){
+  const email=$("cEmail").value.trim(),password=$("cPass").value;
+  if(!email||password.length<6){$("cloudMsg").textContent="Впиши почту и пароль от 6 символов.";return;}
+  $("cloudMsg").textContent="Секунду…";
+  const r=signup?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});
+  if(r.error){$("cloudMsg").textContent=/confirm/i.test(r.error.message)?"Подтверди почту: открой письмо от Supabase и нажми ссылку, потом нажми «Войти».":/Invalid login/i.test(r.error.message)?"Неверная почта или пароль.":"Ошибка: "+r.error.message;return;}
+  user=r.data.session?r.data.session.user:null;
+  if(!user){$("cloudMsg").textContent="Аккаунт создан. Открой письмо от Supabase, подтверди почту и нажми «Войти».";renderCloud();return;}
+  $("cPass").value="";
+  try{await cloudPull(true);$("cloudMsg").textContent="Готово, траты сохраняются в облаке.";}catch(e){$("cloudMsg").textContent="Вошёл, но не получилось загрузить данные. Проверь, что выполнил SQL из инструкции.";}
+  renderCloud();
+}
+$("cLogin").onclick=()=>auth(false);
+$("cSignup").onclick=()=>auth(true);
+$("cLogout").onclick=async()=>{try{await sb.auth.signOut();}catch(e){}user=null;renderCloud();$("cloudMsg").textContent="Вышел. Траты остались в облаке, на телефоне видна последняя копия.";};
+$("cSync").onclick=async()=>{$("cloudMsg").textContent="Обновляю…";try{await cloudPull(false);$("cloudMsg").textContent="Обновлено.";}catch(e){$("cloudMsg").textContent=errText(e);}};
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&online())cloudPull(false).catch(()=>{});});
 
 /* AI */
 $("aiBtn").onclick=async()=>{
@@ -553,7 +649,11 @@ lsLoad();demo=!tx.length;drawAll();drawMan();render();
 (async()=>{
   try{if(window.claude&&claude.use){sample=await claude.use("sample").catch(()=>null);db=await claude.use("db").catch(()=>null);}}catch(e){}
   render();
-  if(!db){maybeWizard();return;}
+  if(!db){
+    await cloudInit();renderCloud();
+    if(online()){try{await cloudPull(true);}catch(e){}}
+    maybeWizard();return;
+  }
   let firstSnap=true;
   db.doc("settings/main").onSnapshot(sn=>{
     if(sn.exists){settings=Object.assign({},DEF,sn.data());lsSave();render();}
