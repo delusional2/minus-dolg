@@ -323,7 +323,7 @@ async function cloudPull(mergeLocal){
     const have=new Set(tx.map(t=>t.id));const missing=local.filter(t=>!have.has(t.id)&&!String(t.id).startsWith("demo"));
     if(missing.length){const r=await sb.from("tx").upsert(missing.map(row),{onConflict:"user_id,id"});if(!r.error)tx=tx.concat(missing);}
   }
-  lsSave();demo=!tx.length;render();
+  lsSave();demo=false;render();
 }
 function renderCloud(){
   const c=cloudCfg();
@@ -645,7 +645,7 @@ ${lines||"нет"}
 };
 
 /* ---------- boot ---------- */
-lsLoad();demo=!tx.length;drawAll();drawMan();render();
+lsLoad();demo=false;drawAll();drawMan();render();
 (async()=>{
   try{if(window.claude&&claude.use){sample=await claude.use("sample").catch(()=>null);db=await claude.use("db").catch(()=>null);}}catch(e){}
   render();
@@ -660,7 +660,7 @@ lsLoad();demo=!tx.length;drawAll();drawMan();render();
     else if(firstSnap&&!sn.metadata.fromCache){settings=Object.assign({},DEF);render();}
     if(!sn.metadata.fromCache){if(firstSnap)maybeWizard();firstSnap=false;}
   },()=>{});
-  db.collection("tx").onSnapshot(sn=>{tx=sn.docs.map(d=>d.data());demo=!tx.length;lsSave();render();if(pending.length)reparse();},()=>{});
+  db.collection("tx").onSnapshot(sn=>{tx=sn.docs.map(d=>d.data());demo=false;lsSave();render();if(pending.length)reparse();},()=>{});
 })();
 })();
 </script>
