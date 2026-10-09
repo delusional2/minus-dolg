@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Минус долг">
+<meta name="theme-color" content="#3b45c8">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Минус долг</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one-screen dashboard — today/month, debt, limits, feedback; history below; fixed bottom bar opens the add sheet */
+:root{
+  --bg:#eef0f3; --surface:#ffffff; --ink:#15192b; --muted:#5d6478; --line:#d9dce4;
+  --accent:#3b45c8; --accent-ink:#ffffff; --accent-soft:#e4e6fb;
+  --ok:#1f8a5b; --warn:#c27a00; --bad:#c8343a; --scrim:rgba(15,18,30,.45);
+  --display:"Unbounded",system-ui,sans-serif;
+  --body:"Onest",system-ui,-apple-system,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#10131d; --surface:#191d2b; --ink:#e9ebf3; --muted:#9aa1b6; --line:#2b3044;
+  --accent:#8d95ff; --accent-ink:#10131d; --accent-soft:#262b4d; --ok:#4cc48c; --warn:#f0b04a; --bad:#ff6b70; --scrim:rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#10131d; --surface:#191d2b; --ink:#e9ebf3; --muted:#9aa1b6; --line:#2b3044;
+  --accent:#8d95ff; --accent-ink:#10131d; --accent-soft:#262b4d; --ok:#4cc48c; --warn:#f0b04a; --bad:#ff6b70; --scrim:rgba(0,0,0,.6); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4;padding-inline:14px;padding-block:14px 110px}
+.wrap{max-width:880px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:12px}
+@media (min-width:760px){.wrap{grid-template-columns:1fr 1fr}.span2{grid-column:1/-1}}
+header{display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{font-family:var(--display);font-weight:700;font-size:20px;margin:0}
+h2{font-family:var(--display);font-weight:500;font-size:13px;margin:0;letter-spacing:.01em}
+.sub{color:var(--muted);font-size:12px}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .4s}
+.bar.ok>i{background:var(--ok)}.bar.warn>i{background:var(--warn)}.bar.bad>i{background:var(--bad)}
+.bad-t{color:var(--bad)}.ok-t{color:var(--ok)}.warn-t{color:var(--warn)}
+/* today */
+.today{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.today>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.hero{font-family:var(--mono);font-size:28px;font-weight:500;line-height:1.1}
+.small{font-size:12px;color:var(--muted)}
+/* limits */
+.lim{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:baseline}
+.lim .bar{grid-column:1/-1}
+.lim .n{font-size:14px;font-weight:500}
+.lim .v{font-family:var(--mono);font-size:13px;text-align:right}
+.lim .s{grid-column:1/-1;font-size:12px;color:var(--muted)}
+.lims{display:flex;flex-direction:column;gap:12px}
+/* debt */
+.debt-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.debt-top .hero{font-size:24px}
+.debt .bar{height:10px}
+/* feed */
+.feed{display:flex;flex-direction:column;gap:6px;margin:0;padding:0;list-style:none;font-size:14px}
+.feed li{padding-left:14px;position:relative}
+.feed li::before{content:"";position:absolute;left:0;top:.55em;width:6px;height:6px;border-radius:50%;background:var(--muted)}
+.feed li.bad::before{background:var(--bad)}.feed li.ok::before{background:var(--ok)}.feed li.warn::before{background:var(--warn)}
+.ai{white-space:pre-wrap;font-size:14px}
+/* controls */
+textarea,input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;width:100%}
+textarea{min-height:110px;resize:vertical;font-size:14px}
+textarea:focus,input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+button.ghost{background:transparent;color:var(--accent);border:1px solid var(--line)}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row>*{flex:1 1 110px;min-width:0}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font-size:12.5px;font-weight:500;padding:6px 10px;border-radius:99px;background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip.sm{font-size:11.5px;padding:4px 8px}
+/* list */
+.list{display:flex;flex-direction:column}
+.tx{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 0;border-top:1px solid var(--line);align-items:center}
+.tx:first-child{border-top:0}
+.tx .m{font-weight:500;overflow-wrap:anywhere;min-width:0;font-size:14px}
+.tx .a{font-family:var(--mono);text-align:right;font-size:14px}
+.tx .meta{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12px;grid-column:1/3;flex-wrap:wrap}
+.tx select{width:auto;padding:3px 6px;font-size:12px;border-radius:8px}
+.tx .del{background:none;color:var(--muted);padding:2px 6px;font-weight:400;margin-left:auto}
+.cats{display:flex;flex-direction:column;gap:7px}
+.cat{display:grid;grid-template-columns:104px 1fr auto;gap:10px;align-items:center;font-size:13px}
+.cat .bar{height:5px}
+.demo{background:var(--accent-soft);border-radius:10px;padding:8px 12px;font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.demo button{padding:6px 10px;font-size:13px}
+/* bottom bar + sheet */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--surface);border-top:1px solid var(--line);padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px))}
+.dock .in{max-width:880px;margin:0 auto;display:flex;gap:8px}
+.dock .add{flex:1;font-size:16px;padding:13px}
+.dock .ghost{flex:0 0 auto}
+.scrim{position:fixed;inset:0;background:var(--scrim);z-index:9}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-radius:18px 18px 0 0;max-height:88%;overflow-y:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 30px rgba(0,0,0,.18)}
+.sheet .in{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.sheet-h{display:flex;justify-content:space-between;align-items:center}
+.x{background:none;color:var(--muted);font-size:22px;padding:0 6px;font-weight:400}
+.tabs{display:flex;gap:6px}
+.tabs .chip{font-size:13px;padding:7px 12px}
+.prev{display:flex;flex-direction:column;gap:10px}
+.pv{border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.pv-top{display:flex;justify-content:space-between;gap:8px;font-size:14px}
+.pv-top b{font-weight:500;overflow-wrap:anywhere;min-width:0}
+.msg{font-size:13px;margin:0}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.grid2 label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted)}
+code{font-family:var(--mono);font-size:12px;background:var(--accent-soft);padding:1px 5px;border-radius:5px}
+@media (max-width:420px){.hero{font-size:23px}.grid2{grid-template-columns:1fr}.cat{grid-template-columns:88px 1fr auto}}
+@media (prefers-reduced-motion:reduce){.bar>i{transition:none}}
+</style>
+
+<div class="wrap">
+  <header class="span2">
+    <div><h1>Минус долг</h1><div class="sub" id="weekLabel"></div></div>
+  </header>
+
+  <div id="demoBar" class="demo span2" hidden>
+    <span>Это пример с выдуманными тратами. Твои появятся после первой SMS.</span>
+    <button class="ghost" id="demoOff">Скрыть</button>
+  </div>
+
+  <section class="card span2" aria-label="Сколько можно тратить">
+    <div class="today">
+      <div><span class="label">Можно сегодня</span><span class="hero" id="tDay">—</span><span class="small" id="tDayNote"></span></div>
+      <div><span class="label">Осталось на месяц</span><span class="hero" id="tMonth">—</span><span class="small" id="tMonthNote"></span></div>
+    </div>
+    <div class="bar"><i id="tBar" style="width:0"></i></div>
+  </section>
+
+  <section class="card">
+    <h2>Лимиты</h2>
+    <div class="lims" id="lims"></div>
+  </section>
+
+  <section class="card debt">
+    <div class="debt-top"><h2>Долг</h2><span class="hero num" id="debtLeft">—</span></div>
+    <div class="bar"><i id="debtBar" style="width:0"></i></div>
+    <p class="note" id="debtNote"></p>
+    <div class="row">
+      <input id="payAmt" type="number" inputmode="decimal" placeholder="Сумма, ₽" aria-label="Сумма платежа по долгу">
+      <button id="payBtn">Отдал часть</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Прогноз</h2>
+    <ul class="feed" id="feed"></ul>
+    <div id="aiRow" hidden><button class="ghost" id="aiBtn">Разбор от Claude</button></div>
+    <div class="ai" id="aiOut"></div>
+  </section>
+
+  <section class="card">
+    <h2>Куда ушло в этом месяце</h2>
+    <div class="cats" id="cats"></div>
+  </section>
+
+  <section class="card span2">
+    <h2>История</h2>
+    <div class="chips" id="filter"></div>
+    <div class="list" id="list"></div>
+  </section>
+</div>
+
+<div class="dock">
+  <div class="in">
+    <button class="add" id="openAdd">+ Добавить траты</button>
+    <button class="ghost" id="openSet">Настройки</button>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+
+<div class="sheet" id="addSheet" role="dialog" aria-label="Добавить траты" hidden>
+  <div class="in">
+    <div class="sheet-h"><h2 style="font-size:16px">Добавить траты</h2><button class="x" data-close aria-label="Закрыть">×</button></div>
+    <div class="tabs">
+      <button class="chip" id="tabSms" aria-pressed="true">Из SMS</button>
+      <button class="chip" id="tabMan" aria-pressed="false">Вручную</button>
+    </div>
+
+    <div id="paneSms" class="in" style="padding:0">
+      <textarea id="sms" placeholder="Вставь одну или несколько SMS от 900. Тип можно дописать прямо в текст: … Покупка 1 800р KOFEMANIYA #девушка"></textarea>
+      <div>
+        <div class="label" style="margin-bottom:6px">Тип для всех трат</div>
+        <div class="chips" id="allCats"></div>
+      </div>
+      <p class="note">«Авто» сам определяет по названию магазина. Метки в тексте: <code>#девушка</code> <code>#еда</code> <code>#такси</code> <code>#связь</code> <code>#долг</code> <code>#другое</code>. Тип каждой траты можно поменять ниже.</p>
+      <div class="prev" id="prev"></div>
+      <p class="msg" id="parseMsg"></p>
+      <button id="saveSms" disabled>Сохранить</button>
+      <p class="note">Коды подтверждения не вставляй: страница их пропускает, но лучше никуда их не копировать.</p>
+    </div>
+
+    <div id="paneMan" class="in" style="padding:0" hidden>
+      <div class="row">
+        <input id="mAmt" type="number" inputmode="decimal" placeholder="Сумма, ₽" aria-label="Сумма">
+        <input id="mName" placeholder="Где или на что" aria-label="Где или на что">
+      </div>
+      <div class="chips" id="mCats"></div>
+      <p class="msg" id="mMsg"></p>
+      <button id="mBtn">Добавить</button>
+    </div>
+  </div>
+</div>
+
+<div class="sheet" id="setSheet" role="dialog" aria-label="Настройки" hidden>
+  <div class="in">
+    <div class="sheet-h"><h2 style="font-size:16px" id="setTitle">Настройки</h2><button class="x" data-close aria-label="Закрыть">×</button></div>
+    <p class="note" id="setIntro" hidden>Впиши свои цифры. Я подставил те, о которых мы договорились, поправь, если что-то изменилось. Потом всё можно поменять в «Настройках».</p>
+    <div class="grid2">
+      <label for="sInc">Доход в месяц, ₽<input id="sInc" type="number" inputmode="numeric"></label>
+      <label for="sDebtM">На долг в месяц, ₽<input id="sDebtM" type="number" inputmode="numeric"></label>
+      <label for="sDebt">Весь долг, ₽<input id="sDebt" type="number" inputmode="numeric"></label>
+      <label for="sGf">Девушка в месяц, ₽<input id="sGf" type="number" inputmode="numeric"></label>
+      <label for="sFood">Еда вне дома в неделю, ₽<input id="sFood" type="number" inputmode="numeric"></label>
+      <label for="sTaxi">Такси в неделю, ₽<input id="sTaxi" type="number" inputmode="numeric"></label>
+      <label for="sFix">Связь и соцкарта в месяц, ₽<input id="sFix" type="number" inputmode="numeric"></label>
+    </div>
+    <button id="saveSet">Сохранить</button>
+    <p class="msg" id="setMsg"></p>
+    <div id="resetBox" style="border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:8px">
+      <button class="ghost" id="resetBtn" style="color:var(--bad)">Удалить все траты и начать с нуля</button>
+      <div id="resetConfirm" class="row" hidden>
+        <span class="msg" id="resetText" style="flex-basis:100%"></span>
+        <button id="resetYes" style="background:var(--bad);color:#fff">Да, удалить</button>
+        <button class="ghost" id="resetNo">Отмена</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+const CATS=["Еда вне дома","Девушка","Такси","Связь","Транспорт","Маркетплейсы","Подписки","Продукты","Переводы","Другое","Долг"];
+const TAGS={"девушка":"Девушка","дев":"Девушка","еда":"Еда вне дома","обед":"Еда вне дома","кафе":"Еда вне дома","такси":"Такси","связь":"Связь","телефон":"Связь","транспорт":"Транспорт","метро":"Транспорт","маркет":"Маркетплейсы","подписка":"Подписки","продукты":"Продукты","перевод":"Переводы","другое":"Другое","долг":"Долг"};
+const RULES=[
+ ["Такси",/TAXI|ТАКСИ|UBER|CITYMOBIL|СИТИМОБИЛ|MAXIM|МАКСИМ|YANDEX\W?GO|ЯНДЕКС\W?GO|DIDI|WHEELY|INDRIVE/i],
+ ["Еда вне дома",/YANDEX\W?EDA|ЯНДЕКС\W?ЕДА|EDA\.YANDEX|DELIVERY|ДОСТАВКА|SAMOKAT|САМОКАТ|LAVKA|ЛАВКА|KFC|ROSTIC|VKUSNO|ВКУСНО|BURGER|БУРГЕР|MCDON|COFFEE|КОФЕ|KOFE|CAFE|КАФЕ|РЕСТОРАН|RESTORAN|SUSHI|СУШИ|PIZZA|ПИЦЦ|DODO|ДОДО|TEREMOK|ТЕРЕМОК|SHOKOLADN|STARBUCKS|COFIX|SHAURM|ШАУРМ|DONER|KITCHEN|GRILL|TANUKI|STOLOVAYA|СТОЛОВАЯ|KOFEMANIYA|SURF/i],
+ ["Связь",/\bMTS\b|МТС|BEELINE|БИЛАЙН|MEGAFON|МЕГАФОН|TELE2|ТЕЛЕ2|\bT2\b|YOTA|ЙОТА|ROSTELECOM|РОСТЕЛЕКОМ/i],
+ ["Продукты",/PYATEROCHKA|ПЯТЕРОЧКА|ПЯТЁРОЧКА|MAGNIT|МАГНИТ|PEREKRESTOK|ПЕРЕКРЕСТОК|VKUSVILL|ВКУСВИЛЛ|AUCHAN|АШАН|LENTA|ЛЕНТА|DIXY|ДИКСИ|SPAR|GLOBUS|ГЛОБУС|AZBUKA|АЗБУКА|BILLA|FIX PRICE|SVETOFOR|СВЕТОФОР/i],
+ ["Маркетплейсы",/OZON|ОЗОН|WILDBERRIES|ВАЙЛДБЕРРИЗ|\bWB\b|YANDEX\W?MARKET|ЯНДЕКС\W?МАРКЕТ|ALIEXPRESS|LAMODA|MEGAMARKET|AVITO|АВИТО/i],
+ ["Транспорт",/METRO|МЕТРО|TROIKA|ТРОЙКА|MOSGORTRANS|МОСГОРТРАНС|TRANSPORT|ТРАНСПОРТ|RZD|РЖД|AEROEXPRESS|WHOOSH|URENT|ЮРЕНТ|PODOROZHNIK|АЗС|LUKOIL|ЛУКОЙЛ/i],
+ ["Подписки",/YANDEX\W?PLUS|ПЛЮС|KINOPOISK|КИНОПОИСК|SPOTIFY|APPLE\.COM|ITUNES|VK MUSIC|BOOM|IVI|OKKO|WINK|PREMIER|YOUTUBE|NETFLIX|SBERPRIME|СБЕРПРАЙМ|TELEGRAM/i],
+];
+const OP=/(Покупка|Оплата|Списание|Перевод|Выдача наличных|Выдача)\s*(?:на сумму\s*)?(?:для\s+[^\d]*?)?([\d][\d\s ]*(?:[.,]\d{1,2})?)\s*(?:р\.?|₽|руб\.?|RUB)/i;
+const SKIP=/(Зачисление|Возврат|Отмена)/i;
+const fmt=n=>new Intl.NumberFormat("ru-RU",{maximumFractionDigits:0}).format(Math.round(n))+" ₽";
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const DEF={foodWeek:2700,taxiWeek:0,debt:0,debtMonthly:0,income:0,gfMonth:0,fixedMonth:0};
+let settings=Object.assign({},DEF);
+let tx=[], demo=false, db=null, sample=null, filterCat="Все";
+let pending=[], allCat="Авто", manCat="Еда вне дома";
+const LS="minus-dolg-v1";
+
+/* ---------- storage ---------- */
+function lsLoad(){try{const d=JSON.parse(localStorage.getItem(LS)||"null");if(d){tx=d.tx||[];settings=Object.assign(settings,d.settings||{});}}catch(e){}}
+function lsSave(){try{localStorage.setItem(LS,JSON.stringify({tx,settings}));}catch(e){}}
+function errText(e){return e&&e.code==="quota_exceeded"?"Хранилище заполнено. Удали старые траты, чтобы добавлять новые.":"Не получилось сохранить. Попробуй ещё раз через минуту.";}
+async function putTx(t){
+  if(db){await db.collection("tx").doc(t.id).set(t);return;}
+  if(!tx.find(x=>x.id===t.id))tx.push(t);lsSave();
+}
+async function delTx(id){
+  if(db){try{await db.collection("tx").doc(id).delete();}catch(e){}return;}
+  tx=tx.filter(x=>x.id!==id);lsSave();render();
+}
+async function catTx(id,cat){
+  if(db){try{await db.collection("tx").doc(id).update({cat});}catch(e){}return;}
+  const t=tx.find(x=>x.id===id);if(t){t.cat=cat;lsSave();render();}
+}
+
+/* ---------- parsing ---------- */
+function hash(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return "s"+(h>>>0).toString(36);}
+function autoCat(name,op){
+  if(/Перевод/i.test(op))return "Переводы";
+  for(const [c,re] of RULES) if(re.test(name))return c;
+  return "Другое";
+}
+function tagCat(s){const m=s.match(/#([а-яёa-z]+)/i);if(!m)return null;const k=m[1].toLowerCase();for(const key in TAGS)if(k.startsWith(key))return TAGS[key];return null;}
+function parseDate(s){
+  const now=new Date();
+  let m=s.match(/(\d{2})\.(\d{2})(?:\.(\d{2,4}))?\s+(\d{1,2}):(\d{2})/);
+  if(m){let y=m[3]?+m[3]:now.getFullYear();if(y<100)y+=2000;return new Date(y,+m[2]-1,+m[1],+m[4],+m[5]).getTime();}
+  m=s.match(/(?:^|\s)(\d{1,2}):(\d{2})(?:\s|$)/);
+  if(m){const d=new Date(now.getFullYear(),now.getMonth(),now.getDate(),+m[1],+m[2]);if(d>now)d.setDate(d.getDate()-1);return d.getTime();}
+  return now.getTime();
+}
+function splitSms(text){
+  const lines=text.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);const chunks=[];
+  for(const l of lines){
+    const last=chunks[chunks.length-1];
+    const onlyTag=/^#[а-яёa-z]+$/i.test(l);
+    const glue=last!==undefined&&(onlyTag||(!OP.test(last)&&!/Код|Никому|пароль/i.test(last+l)));
+    if(glue)chunks[chunks.length-1]+=" "+l;else chunks.push(l);
+  }
+  return chunks;
+}
+function parseOne(raw){
+  if(/Никому не сообщайте|код подтверждения|Код:|пароль/i.test(raw))return {skip:"code"};
+  const m=raw.match(OP);
+  if(!m)return {skip:SKIP.test(raw)?"other":"noise"};
+  if(SKIP.test(m[1]))return {skip:"other"};
+  const amount=parseFloat(m[2].replace(/[\s ]/g,"").replace(",","."));
+  if(!amount)return {skip:"other"};
+  const clean=raw.replace(/#[а-яёa-z]+/ig,"").replace(/\s+/g," ").trim();
+  let after=clean.slice(clean.search(OP)).replace(OP,"");
+  after=after.split(/Баланс|Остаток|Доступно/i)[0].replace(/^[\s.,:-]+|[\s.,:-]+$/g,"");
+  const name=(after||m[1]).slice(0,60);
+  const tag=tagCat(raw);
+  return {t:{id:hash(clean),amount,name,cat:tag||autoCat(name,m[1]),tagged:!!tag,ts:parseDate(clean),src:"sms"}};
+}
+
+/* ---------- periods ---------- */
+function weekStart(d=new Date()){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-(x.getDay()+6)%7);return x;}
+function monthStart(d=new Date()){return new Date(d.getFullYear(),d.getMonth(),1);}
+
+/* ---------- demo ---------- */
+function demoData(){
+  const now=Date.now(),D=864e5;
+  return [[0,350,"STOLOVAYA","Еда вне дома"],[0,2400,"KOFEMANIYA","Девушка"],[1,350,"STOLOVAYA","Еда вне дома"],[1,890,"SAMOKAT","Еда вне дома"],[2,640,"YANDEX*TAXI","Такси"],[2,350,"STOLOVAYA","Еда вне дома"],[3,3200,"KINO MORI","Девушка"],[4,450,"COFIX","Еда вне дома"],[5,600,"MTS","Связь"],[6,1900,"WILDBERRIES","Маркетплейсы"]]
+   .map((x,i)=>({id:"demo"+i,amount:x[1],name:x[2],cat:x[3],ts:now-x[0]*D-3600e3*(i%4)}));
+}
+const data=()=>demo?demoData():tx;
+const S=()=>demo?Object.assign({},settings,{income:settings.income||117000,debt:settings.debt||500000,debtMonthly:settings.debtMonthly||60000,gfMonth:settings.gfMonth||25000,fixedMonth:settings.fixedMonth||4000}):settings;
+const sum=a=>a.reduce((s,t)=>s+t.amount,0);
+
+/* ---------- render ---------- */
+function limRow(name,spent,limit,period){
+  if(!limit){
+    const bad=spent>0;
+    return `<div class="lim"><span class="n">${name}</span><span class="v ${bad?"bad-t":"ok-t"}">${fmt(spent)}</span>
+    <div class="bar ${bad?"bad":"ok"}"><i style="width:${bad?100:0}%"></i></div>
+    <span class="s">${bad?"договорились без него, это срыв":"ноль, так и держи"}</span></div>`;
+  }
+  const p=spent/limit,c=p>1?"bad":p>.8?"warn":"ok";
+  return `<div class="lim"><span class="n">${name}</span><span class="v">${fmt(spent)} <span class="small">/ ${fmt(limit)}</span></span>
+  <div class="bar ${c}"><i style="width:${Math.min(100,p*100)}%"></i></div>
+  <span class="s ${c==="ok"?"":c+"-t"}">${p>1?"перебор "+fmt(spent-limit):"осталось "+fmt(limit-spent)} ${period}</span></div>`;
+}
+function render(){
+  const T=data(),s=S(),now=new Date();
+  $("demoBar").hidden=!demo;
+  const wsD=weekStart(),ws=wsD.getTime(),ms=monthStart().getTime();
+  const we=new Date(ws+6*864e5);
+  $("weekLabel").textContent=now.toLocaleDateString("ru-RU",{weekday:"long",day:"numeric",month:"long"})+" · неделя до "+we.toLocaleDateString("ru-RU",{day:"numeric",month:"long"});
+  const wk=T.filter(t=>t.ts>=ws),mo=T.filter(t=>t.ts>=ms);
+  const byCat=(arr,c)=>sum(arr.filter(t=>t.cat===c));
+
+  /* today / month */
+  const dim=new Date(now.getFullYear(),now.getMonth()+1,0).getDate(),daysLeft=dim-now.getDate()+1;
+  const ds=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();
+  if(s.income){
+    const budget=s.income-s.debtMonthly;
+    const spentM=sum(mo.filter(t=>t.cat!=="Долг")),before=sum(mo.filter(t=>t.cat!=="Долг"&&t.ts<ds)),today=spentM-before;
+    const perDay=(budget-before)/daysLeft,tl=perDay-today,ml=budget-spentM;
+    $("tDay").textContent=fmt(Math.max(0,tl));$("tDay").className="hero"+(tl<0?" bad-t":"");
+    $("tDayNote").textContent=tl<0?`перебор ${fmt(-tl)}`:`потрачено ${fmt(today)} из ${fmt(Math.max(0,perDay))}`;
+    $("tMonth").textContent=fmt(Math.max(0,ml));$("tMonth").className="hero"+(ml<0?" bad-t":"");
+    $("tMonthNote").textContent=`из ${fmt(budget)} · ещё ${daysLeft} дн.`;
+    $("tBar").style.width=Math.min(100,spentM/budget*100)+"%";
+  }else{$("tDay").textContent="—";$("tMonth").textContent="—";$("tDayNote").textContent="впиши доход в настройках";$("tMonthNote").textContent="";}
+
+  /* limits */
+  const wkInM=dim/7;
+  $("lims").innerHTML=
+    limRow("Еда вне дома",byCat(wk,"Еда вне дома"),s.foodWeek,"на неделю")+
+    limRow("Такси",byCat(wk,"Такси"),s.taxiWeek,"на неделю")+
+    limRow("Девушка",byCat(mo,"Девушка"),s.gfMonth,"на месяц")+
+    limRow("Связь и транспорт",byCat(mo,"Связь")+byCat(mo,"Транспорт"),s.fixedMonth,"на месяц");
+
+  /* forecast */
+  const f=[];
+  const spends=T.filter(t=>t.cat!=="Долг");
+  if(s.income&&spends.length){
+    const budget=s.income-s.debtMonthly,spentM=sum(mo.filter(t=>t.cat!=="Долг"));
+    const firstTs=Math.min(...T.map(t=>t.ts));
+    const fromDay=Math.max(ms,new Date(new Date(firstTs).getFullYear(),new Date(firstTs).getMonth(),new Date(firstTs).getDate()).getTime());
+    const daysTracked=Math.max(1,Math.round((ds-fromDay)/864e5)+1);
+    const daysInPlan=Math.round((ds-ms)/864e5)+1;
+    const proj=spentM/daysTracked*dim;
+    if(daysTracked<3)f.push(["",`Прогноз на месяц появится через пару дней, когда наберётся статистика. Пока потрачено ${fmt(spentM)} из ${fmt(budget)}.`]);
+    else{const diff=budget-proj;
+      f.push([diff>=0?"ok":"bad",diff>=0?`В таком темпе к концу месяца потратишь около ${fmt(proj)} и останется ${fmt(diff)}. Их можно отдать в долг сверх плана.`:`В таком темпе к концу месяца потратишь около ${fmt(proj)}, это на ${fmt(-diff)} больше, чем можно. Притормози.`]);}
+    /* streak of days within daily norm */
+    const norm=budget/dim;let streak=0;
+    for(let d=ds-864e5;d>=fromDay;d-=864e5){const day=sum(spends.filter(t=>t.ts>=d&&t.ts<d+864e5));if(day<=norm)streak++;else break;}
+    if(streak>=1)f.push(["ok",`${streak} ${streak===1?"день":streak<5?"дня":"дней"} подряд укладываешься в дневную норму ${fmt(norm)}.`]);
+    else if(ds-864e5>=fromDay)f.push(["warn",`Вчера вышел за дневную норму ${fmt(norm)}. Сегодня хороший день, чтобы отыграть.`]);
+  }else if(!s.income)f.push(["","Впиши доход в настройках, чтобы появился прогноз."]);
+  if(!s.taxiWeek&&T.length){
+    const taxis=T.filter(t=>t.cat==="Такси");
+    const since=taxis.length?Math.max(...taxis.map(t=>t.ts)):Math.min(...T.map(t=>t.ts));
+    const days=Math.floor((Date.now()-since)/864e5);
+    f.push([taxis.length&&days<1?"bad":"ok",taxis.length?(days<1?"Сегодня было такси. Счётчик дней без такси начнётся заново.":`${days} дн. без такси.`):`Без такси с начала учёта (${days} дн.).`]);
+  }
+  if(s.debt&&s.debtMonthly){
+    const pm=byCat(mo,"Долг");
+    if(pm<s.debtMonthly)f.push(["",`До плана по долгу в этом месяце: ${fmt(s.debtMonthly-pm)}. Отдай в день зарплаты, первым делом.`]);
+  }
+  if(!f.length)f.push(["","Прогноз появится, как только добавишь траты кнопкой внизу."]);
+  $("feed").innerHTML=f.map(([c,t])=>`<li class="${c}">${t}</li>`).join("");
+  $("aiRow").hidden=!sample||!T.length;
+
+  /* debt */
+  const paid=byCat(T,"Долг");
+  if(s.debt>0){
+    const left=Math.max(0,s.debt-paid);
+    $("debtLeft").textContent=left?fmt(left):"закрыт";
+    $("debtBar").style.width=Math.min(100,paid/s.debt*100)+"%";
+    let note=`Отдано ${fmt(paid)} из ${fmt(s.debt)}.`;
+    if(left&&s.debtMonthly>0){const n=Math.ceil(left/s.debtMonthly);const d=new Date(now.getFullYear(),now.getMonth()+n,1);
+      const pm=byCat(mo,"Долг");note+=` Закроешь к ${d.toLocaleDateString("ru-RU",{month:"long",year:"numeric"})}. `+(pm>=s.debtMonthly?"План месяца выполнен.":`В этом месяце ещё ${fmt(s.debtMonthly-pm)}.`);}
+    if(!left)note="Долг закрыт. Теперь эти деньги можно откладывать себе.";
+    $("debtNote").textContent=note;
+  }else{$("debtLeft").textContent="—";$("debtBar").style.width="0";$("debtNote").textContent="Впиши сумму долга в настройках.";}
+
+  /* cats */
+  const bc={};mo.filter(t=>t.cat!=="Долг").forEach(t=>bc[t.cat]=(bc[t.cat]||0)+t.amount);
+  const ce=Object.entries(bc).sort((a,b)=>b[1]-a[1]),mx=ce.length?ce[0][1]:1;
+  $("cats").innerHTML=ce.length?ce.map(([c,v])=>`<div class="cat"><span>${c}</span><div class="bar"><i style="width:${v/mx*100}%"></i></div><span class="num">${fmt(v)}</span></div>`).join(""):'<p class="note">Пока пусто.</p>';
+
+  /* filter + list */
+  const used=["Все",...CATS.filter(c=>T.some(t=>t.cat===c))];
+  if(!used.includes(filterCat))filterCat="Все";
+  $("filter").innerHTML=used.map(c=>`<button class="chip sm" data-f="${c}" aria-pressed="${c===filterCat}">${c}</button>`).join("");
+  const rows=[...T].filter(t=>filterCat==="Все"||t.cat===filterCat).sort((a,b)=>b.ts-a.ts).slice(0,200);
+  $("list").innerHTML=rows.length?rows.map(t=>`<div class="tx"><span class="m">${esc(t.name)}</span><span class="a">${t.cat==="Долг"?"→ ":"−"}${fmt(t.amount)}</span>
+   <div class="meta"><span>${new Date(t.ts).toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
+   <select data-id="${t.id}" aria-label="Тип траты" ${demo?"disabled":""}>${CATS.map(c=>`<option${c===t.cat?" selected":""}>${c}</option>`).join("")}</select>
+   ${demo?"":`<button class="del" data-del="${t.id}">удалить</button>`}</div></div>`).join(""):'<p class="note">Пока нет ни одной траты. Нажми «Добавить траты» внизу.</p>';
+}
+
+/* ---------- sheets ---------- */
+function openSheet(id){$("scrim").hidden=false;$(id).hidden=false;}
+function closeSheets(){$("scrim").hidden=true;$("addSheet").hidden=true;$("setSheet").hidden=true;}
+$("scrim").onclick=closeSheets;
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=closeSheets);
+document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheets();});
+$("openAdd").onclick=()=>{openSheet("addSheet");setTimeout(()=>$("sms").focus(),50);};
+$("openSet").onclick=()=>{fillSet();$("setMsg").textContent="";openSheet("setSheet");};
+function setTab(sms){$("tabSms").setAttribute("aria-pressed",sms);$("tabMan").setAttribute("aria-pressed",!sms);$("paneSms").hidden=!sms;$("paneMan").hidden=sms;}
+$("tabSms").onclick=()=>setTab(true);$("tabMan").onclick=()=>setTab(false);
+
+/* ---------- SMS add with types ---------- */
+function chipRow(list,cur,attr){return list.map(c=>`<button class="chip sm" ${attr}="${c}" aria-pressed="${c===cur}">${c}</button>`).join("");}
+function drawAll(){$("allCats").innerHTML=chipRow(["Авто",...CATS.filter(c=>c!=="Долг")],allCat,"data-all");}
+function drawPrev(){
+  const ok=pending.filter(p=>p.t);
+  $("prev").innerHTML=ok.map((p,i)=>`<div class="pv"><div class="pv-top"><b>${esc(p.t.name)}</b><span class="num">${fmt(p.t.amount)}</span></div>
+    <div class="chips">${CATS.map(c=>`<button class="chip sm" data-pi="${i}" data-pc="${c}" aria-pressed="${c===p.t.cat}">${c}</button>`).join("")}</div></div>`).join("");
+  const codes=pending.filter(p=>p.skip==="code").length,other=pending.filter(p=>p.skip==="other").length,dup=ok.filter(p=>p.dup).length;
+  const parts=[];if(ok.length)parts.push(`Найдено трат: ${ok.length}`);if(dup)parts.push(`из них уже были: ${dup}`);if(other)parts.push(`не покупки: ${other}`);if(codes)parts.push(`коды пропущены: ${codes}`);
+  $("parseMsg").textContent=$("sms").value.trim()?(parts.join(", ")||"Не нашёл покупок. Проверь, что это SMS о списании."):"";
+  $("saveSms").disabled=!ok.filter(p=>!p.dup).length;
+  $("saveSms").textContent=ok.filter(p=>!p.dup).length?`Сохранить ${ok.filter(p=>!p.dup).length}`:"Сохранить";
+}
+function reparse(){
+  const have=new Set(tx.map(t=>t.id));
+  const prevCats={};pending.forEach(p=>{if(p.t&&p.manual)prevCats[p.t.id]=p.t.cat;});
+  pending=splitSms($("sms").value).map(parseOne);
+  pending.forEach(p=>{if(!p.t)return;p.dup=have.has(p.t.id);
+    if(prevCats[p.t.id]){p.t.cat=prevCats[p.t.id];p.manual=true;}
+    else if(allCat!=="Авто"&&!p.t.tagged)p.t.cat=allCat;});
+  drawPrev();
+}
+$("sms").addEventListener("input",reparse);
+$("allCats").addEventListener("click",e=>{const c=e.target.dataset.all;if(!c)return;allCat=c;drawAll();
+  pending.forEach(p=>{if(p.t&&!p.manual&&!p.t.tagged)p.t.cat=c==="Авто"?autoCat(p.t.name,""):c;});drawPrev();});
+$("prev").addEventListener("click",e=>{const i=e.target.dataset.pi;if(i===undefined)return;const ok=pending.filter(p=>p.t);ok[+i].t.cat=e.target.dataset.pc;ok[+i].manual=true;drawPrev();});
+$("saveSms").onclick=async()=>{
+  const todo=pending.filter(p=>p.t&&!p.dup);let n=0;
+  $("saveSms").disabled=true;
+  try{for(const p of todo){const t=Object.assign({},p.t);delete t.tagged;await putTx(t);n++;}}
+  catch(e){$("parseMsg").textContent=errText(e);drawPrev();return;}
+  demo=false;$("sms").value="";pending=[];drawPrev();render();
+  $("parseMsg").textContent=`Сохранено: ${n}.`;
+  setTimeout(closeSheets,700);
+};
+
+/* manual */
+function drawMan(){$("mCats").innerHTML=chipRow(CATS.filter(c=>c!=="Долг"),manCat,"data-mc");}
+$("mCats").addEventListener("click",e=>{const c=e.target.dataset.mc;if(c){manCat=c;drawMan();}});
+$("mBtn").onclick=async()=>{
+  const a=parseFloat($("mAmt").value);if(!a){$("mMsg").textContent="Укажи сумму.";return;}
+  try{await putTx({id:"m"+Date.now().toString(36),amount:a,name:$("mName").value.trim()||manCat,cat:manCat,ts:Date.now(),src:"manual"});}
+  catch(e){$("mMsg").textContent=errText(e);return;}
+  demo=false;$("mAmt").value="";$("mName").value="";$("mMsg").textContent="Добавлено.";render();setTimeout(closeSheets,600);
+};
+$("payBtn").onclick=async()=>{
+  const a=parseFloat($("payAmt").value);if(!a)return;
+  try{await putTx({id:"d"+Date.now().toString(36),amount:a,name:"Возврат долга",cat:"Долг",ts:Date.now(),src:"manual"});}catch(e){$("debtNote").textContent=errText(e);return;}
+  demo=false;$("payAmt").value="";render();
+};
+
+/* list */
+$("list").addEventListener("change",e=>{const id=e.target.dataset.id;if(id)catTx(id,e.target.value);});
+$("list").addEventListener("click",e=>{const id=e.target.dataset.del;if(id)delTx(id);});
+$("filter").addEventListener("click",e=>{const c=e.target.dataset.f;if(c){filterCat=c;render();}});
+$("demoOff").onclick=()=>{demo=false;render();};
+
+/* settings */
+const SF={sInc:"income",sDebtM:"debtMonthly",sDebt:"debt",sGf:"gfMonth",sFood:"foodWeek",sTaxi:"taxiWeek",sFix:"fixedMonth"};
+const SUGGEST={income:117000,debtMonthly:60000,debt:500000,gfMonth:25000,foodWeek:2700,taxiWeek:0,fixedMonth:4000};
+function fillSet(first){for(const id in SF){const k=SF[id];$(id).value=first?SUGGEST[k]:(settings[k]||0);}
+  $("setIntro").hidden=!first;$("setTitle").textContent=first?"Давай настроим":"Настройки";$("resetBox").hidden=!!first;$("resetConfirm").hidden=true;}
+let wizardShown=false;
+function maybeWizard(){if(!settings.income&&!wizardShown){wizardShown=true;fillSet(true);$("setMsg").textContent="";openSheet("setSheet");}}
+$("resetBtn").onclick=()=>{$("resetText").textContent=tx.length?`Удалить ${tx.length} трат и платежи по долгу? Вернуть их будет нельзя. Настройки останутся.`:"Трат пока нет, удалять нечего.";$("resetYes").hidden=!tx.length;$("resetConfirm").hidden=false;};
+$("resetNo").onclick=()=>{$("resetConfirm").hidden=true;};
+$("resetYes").onclick=async()=>{
+  $("resetYes").disabled=true;
+  try{if(db){for(const t of [...tx])await db.collection("tx").doc(t.id).delete();}else{tx=[];lsSave();}}
+  catch(e){$("resetText").textContent="Не всё удалилось. Попробуй ещё раз.";$("resetYes").disabled=false;return;}
+  tx=[];lsSave();$("resetYes").disabled=false;$("resetConfirm").hidden=true;$("setMsg").textContent="Все траты удалены.";render();
+};
+$("saveSet").onclick=async()=>{
+  const n={};for(const id in SF)n[SF[id]]=+$(id).value||0;settings=n;
+  if(db){try{await db.doc("settings/main").set(settings);}catch(e){$("setMsg").textContent=errText(e);return;}}
+  lsSave();demo=false;render();$("setMsg").textContent="Сохранено.";setTimeout(closeSheets,600);
+};
+
+/* AI */
+$("aiBtn").onclick=async()=>{
+  if(!sample)return;const btn=$("aiBtn");btn.disabled=true;$("aiOut").textContent="Думаю…";
+  const T=data(),s=S(),ms=monthStart().getTime();
+  const lines=T.filter(t=>t.ts>=ms).sort((a,b)=>a.ts-b.ts).map(t=>`${new Date(t.ts).toLocaleDateString("ru-RU")} ${t.cat} ${t.name} ${Math.round(t.amount)}`).join("\n");
+  const prompt=`Ты помогаешь молодому человеку перестать тратить лишнее и вернуть долг. Доход ${s.income} ₽/мес, долг ${s.debt} ₽, отдаёт ${s.debtMonthly} ₽/мес (уже отдано ${sum(T.filter(t=>t.cat==="Долг"))} ₽). Живёт с родителями, продукты не покупает. Решил вообще не ездить на такси. Лимиты: еда вне дома (включая обеды ~350 ₽ в будни) ${s.foodWeek} ₽/нед, девушка ${s.gfMonth} ₽/мес, связь и соцкарта ${s.fixedMonth} ₽/мес. Сегодня ${new Date().toLocaleDateString("ru-RU")}.
+Траты с начала месяца (дата, категория, где, сумма):
+${lines||"нет"}
+Дай короткий честный разбор по-русски, на "ты", дружелюбно и прямо, без морализаторства и без markdown: 4-6 предложений. Назови конкретные паттерны, посчитай, сколько можно было сэкономить и как это ускорит возврат долга, и дай 2 конкретных действия на следующую неделю.`;
+  try{await sample(prompt,{cache:false,onText:({text})=>{$("aiOut").textContent=text;}});}
+  catch(e){$("aiOut").textContent=e&&e.code==="rate_limited"?"Слишком часто. Попробуй через пару минут.":"";if(e&&e.code==="not_granted")$("aiRow").hidden=true;}
+  btn.disabled=false;
+};
+
+/* ---------- boot ---------- */
+lsLoad();demo=!tx.length;drawAll();drawMan();render();
+(async()=>{
+  try{if(window.claude&&claude.use){sample=await claude.use("sample").catch(()=>null);db=await claude.use("db").catch(()=>null);}}catch(e){}
+  render();
+  if(!db){maybeWizard();return;}
+  let firstSnap=true;
+  db.doc("settings/main").onSnapshot(sn=>{
+    if(sn.exists){settings=Object.assign({},DEF,sn.data());lsSave();render();}
+    else if(firstSnap&&!sn.metadata.fromCache){settings=Object.assign({},DEF);render();}
+    if(!sn.metadata.fromCache){if(firstSnap)maybeWizard();firstSnap=false;}
+  },()=>{});
+  db.collection("tx").onSnapshot(sn=>{tx=sn.docs.map(d=>d.data());demo=!tx.length;lsSave();render();if(pending.length)reparse();},()=>{});
+})();
+})();
+</script>
+
+</body>
+</html>
