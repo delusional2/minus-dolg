@@ -7,14 +7,14 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Минус долг">
-<meta name="theme-color" content="#3b45c8">
+<meta name="theme-color" content="#0d1020">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-180.png">
+<title>Минус долг</title>
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,-apple-system,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
 <body>
-<title>Минус долг</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Onest:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap">
 <style>
@@ -120,58 +120,110 @@ button:disabled{opacity:.5;cursor:default}
 code{font-family:var(--mono);font-size:12px;background:var(--accent-soft);padding:1px 5px;border-radius:5px}
 @media (max-width:420px){.hero{font-size:23px}.grid2{grid-template-columns:1fr}.cat{grid-template-columns:88px 1fr auto}}
 @media (prefers-reduced-motion:reduce){.bar>i{transition:none}}
+/* v2: swipe pages + glass */
+:root{--glass:rgba(255,255,255,.62);--glass-line:rgba(255,255,255,.8);--glow1:#c7cbff;--glow2:#b8f0d8;--glow3:#ffd9b8}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--glass:rgba(30,34,54,.55);--glass-line:rgba(255,255,255,.09);--glow1:#3a3f9a;--glow2:#1d5b48;--glow3:#5a2f4a}}
+:root[data-theme="dark"]{--glass:rgba(30,34,54,.55);--glass-line:rgba(255,255,255,.09);--glow1:#3a3f9a;--glow2:#1d5b48;--glow3:#5a2f4a}
+html,body{height:100%}
+body{padding:0;overflow:hidden}
+.glows{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.glows i{position:absolute;border-radius:50%;filter:blur(60px);opacity:.7}
+.glows i:nth-child(1){width:320px;height:320px;background:var(--glow1);top:-120px;right:-80px}
+.glows i:nth-child(2){width:280px;height:280px;background:var(--glow2);bottom:40px;left:-120px}
+.glows i:nth-child(3){width:220px;height:220px;background:var(--glow3);top:45%;right:-120px}
+.app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.top{padding:14px 16px 8px;max-width:880px;width:100%;margin:0 auto}
+.top header{align-items:flex-end}
+.pill{font-size:11px;font-weight:600;padding:4px 9px;border-radius:99px;background:var(--glass);border:1px solid var(--glass-line);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);white-space:nowrap}
+.ptabs{display:flex;gap:6px;margin-top:12px;padding:4px;border-radius:14px;background:var(--glass);border:1px solid var(--glass-line);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.ptab{flex:1;background:transparent;color:var(--muted);padding:8px 4px;font-size:13px;border-radius:10px}
+.ptab[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+.pager{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.pager::-webkit-scrollbar{display:none}
+.page{flex:0 0 100%;scroll-snap-align:start;overflow-y:auto;padding:4px 16px 120px}
+.page>.wrap{max-width:880px;margin:0 auto}
+.card{background:var(--glass);border-color:var(--glass-line);border-radius:20px;backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);box-shadow:0 8px 24px rgba(0,0,0,.08),inset 0 1px 0 rgba(255,255,255,.12)}
+.dock{background:transparent;border:0;padding-top:6px}
+.dock .in{padding:8px;border-radius:22px;background:var(--glass);border:1px solid var(--glass-line);backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.dock .add{border-radius:14px}
+.dock .ghost{border-radius:14px}
+.sheet{background:var(--surface)}
+.ic{flex:0 0 auto;width:36px;height:36px;border-radius:12px;display:grid;place-items:center;font-size:18px;background:var(--accent-soft)}
+.tx{grid-template-columns:auto 1fr auto}
+.tx .meta{grid-column:2/4}
+.tx .ic{grid-row:1/3}
+.lim{grid-template-columns:auto 1fr auto}
+.lim .ic{grid-row:1/4;align-self:start}
+.lim .bar,.lim .s{grid-column:2/4}
+.cat{grid-template-columns:22px 96px 1fr auto}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.tile{display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:14px;background:var(--bg);color:var(--ink);border:1px solid var(--line);font-size:11.5px;font-weight:600}
+.tile b{font-size:22px;line-height:1}
+.tile[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.big-in{font-family:var(--mono);font-size:28px;text-align:center;padding:14px}
+input[type=number]{-moz-appearance:textfield}input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+@media (max-width:420px){.cat{grid-template-columns:22px 80px 1fr auto}.tiles{grid-template-columns:repeat(3,1fr)}}
 </style>
 
-<div class="wrap">
-  <header class="span2">
-    <div><h1>Минус долг</h1><div class="sub" id="weekLabel"></div><div class="sub" id="syncState">только на этом телефоне</div></div>
-  </header>
-
-  <div id="demoBar" class="demo span2" hidden>
-    <span>Это пример с выдуманными тратами. Твои появятся после первой SMS.</span>
-    <button class="ghost" id="demoOff">Скрыть</button>
+<div class="glows" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="app">
+  <div class="top">
+    <header>
+      <div><h1>Минус долг</h1><div class="sub" id="weekLabel"></div></div>
+      <span class="pill" id="syncState">на телефоне</span>
+    </header>
+    <nav class="ptabs" role="tablist" aria-label="Экраны">
+      <button class="ptab" role="tab" data-p="0" aria-selected="true">Сегодня</button>
+      <button class="ptab" role="tab" data-p="1" aria-selected="false">Лимиты</button>
+      <button class="ptab" role="tab" data-p="2" aria-selected="false">История</button>
+    </nav>
   </div>
-
-  <section class="card span2" aria-label="Сколько можно тратить">
-    <div class="today">
-      <div><span class="label">Можно сегодня</span><span class="hero" id="tDay">—</span><span class="small" id="tDayNote"></span></div>
-      <div><span class="label">Осталось на месяц</span><span class="hero" id="tMonth">—</span><span class="small" id="tMonthNote"></span></div>
+  <main class="pager" id="pager">
+  <section class="page" aria-label="Сегодня"><div class="wrap">
+    <div id="demoBar" class="demo span2" hidden>
+      <span>Это пример с выдуманными тратами.</span>
+      <button class="ghost" id="demoOff">Скрыть</button>
     </div>
-    <div class="bar"><i id="tBar" style="width:0"></i></div>
-  </section>
-
-  <section class="card">
-    <h2>Лимиты</h2>
-    <div class="lims" id="lims"></div>
-  </section>
-
-  <section class="card debt">
-    <div class="debt-top"><h2>Долг</h2><span class="hero num" id="debtLeft">—</span></div>
-    <div class="bar"><i id="debtBar" style="width:0"></i></div>
-    <p class="note" id="debtNote"></p>
-    <div class="row">
-      <input id="payAmt" type="number" inputmode="decimal" placeholder="Сумма, ₽" aria-label="Сумма платежа по долгу">
-      <button id="payBtn">Отдал часть</button>
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Прогноз</h2>
-    <ul class="feed" id="feed"></ul>
-    <div id="aiRow" hidden><button class="ghost" id="aiBtn">Разбор от Claude</button></div>
-    <div class="ai" id="aiOut"></div>
-  </section>
-
-  <section class="card">
-    <h2>Куда ушло в этом месяце</h2>
-    <div class="cats" id="cats"></div>
-  </section>
-
-  <section class="card span2">
-    <h2>История</h2>
-    <div class="chips" id="filter"></div>
-    <div class="list" id="list"></div>
-  </section>
+    <section class="card span2" aria-label="Сколько можно тратить">
+      <div class="today">
+        <div><span class="label">Можно сегодня</span><span class="hero" id="tDay">—</span><span class="small" id="tDayNote"></span></div>
+        <div><span class="label">Осталось на месяц</span><span class="hero" id="tMonth">—</span><span class="small" id="tMonthNote"></span></div>
+      </div>
+      <div class="bar"><i id="tBar" style="width:0"></i></div>
+    </section>
+    <section class="card debt">
+      <div class="debt-top"><h2>Долг</h2><span class="hero num" id="debtLeft">—</span></div>
+      <div class="bar"><i id="debtBar" style="width:0"></i></div>
+      <p class="note" id="debtNote"></p>
+      <div class="row">
+        <input id="payAmt" type="number" inputmode="decimal" placeholder="Сумма, ₽" aria-label="Сумма платежа по долгу">
+        <button id="payBtn">Отдал часть</button>
+      </div>
+    </section>
+    <section class="card">
+      <h2>Прогноз</h2>
+      <ul class="feed" id="feed"></ul>
+      <div id="aiRow" hidden><button class="ghost" id="aiBtn">Разбор от Claude</button></div>
+      <div class="ai" id="aiOut"></div>
+    </section>
+  </div></section>
+  <section class="page" aria-label="Лимиты"><div class="wrap">
+    <section class="card">
+      <h2>Лимиты</h2>
+      <div class="lims" id="lims"></div>
+    </section>
+    <section class="card">
+      <h2>Куда ушло в этом месяце</h2>
+      <div class="cats" id="cats"></div>
+    </section>
+  </div></section>
+  <section class="page" aria-label="История"><div class="wrap">
+    <section class="card span2">
+      <div class="chips" id="filter"></div>
+      <div class="list" id="list"></div>
+    </section>
+  </div></section>
+  </main>
 </div>
 
 <div class="dock">
@@ -206,10 +258,10 @@ code{font-family:var(--mono);font-size:12px;background:var(--accent-soft);paddin
 
     <div id="paneMan" class="in" style="padding:0" hidden>
       <div class="row">
-        <input id="mAmt" type="number" inputmode="decimal" placeholder="Сумма, ₽" aria-label="Сумма">
-        <input id="mName" placeholder="Где или на что" aria-label="Где или на что">
+        <input id="mAmt" class="big-in" type="number" inputmode="decimal" placeholder="0 ₽" aria-label="Сумма">
       </div>
-      <div class="chips" id="mCats"></div>
+      <div class="tiles" id="mCats"></div>
+      <input id="mName" placeholder="Где или на что (необязательно)" aria-label="Где или на что">
       <p class="msg" id="mMsg"></p>
       <button id="mBtn">Добавить</button>
     </div>
@@ -265,6 +317,7 @@ code{font-family:var(--mono);font-size:12px;background:var(--accent-soft);paddin
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <script>
 (function(){
+const ICON={"Еда вне дома":"🍔","Девушка":"💘","Такси":"🚕","Связь":"📱","Транспорт":"🚇","Маркетплейсы":"📦","Подписки":"🎬","Продукты":"🛒","Переводы":"↔️","Другое":"🧾","Долг":"💳"};
 const CATS=["Еда вне дома","Девушка","Такси","Связь","Транспорт","Маркетплейсы","Подписки","Продукты","Переводы","Другое","Долг"];
 const TAGS={"девушка":"Девушка","дев":"Девушка","еда":"Еда вне дома","обед":"Еда вне дома","кафе":"Еда вне дома","такси":"Такси","связь":"Связь","телефон":"Связь","транспорт":"Транспорт","метро":"Транспорт","маркет":"Маркетплейсы","подписка":"Подписки","продукты":"Продукты","перевод":"Переводы","другое":"Другое","долг":"Долг"};
 const RULES=[
@@ -332,7 +385,7 @@ function renderCloud(){
     :!sb?"Не получилось подключиться к базе. Проверь адрес и ключ или интернет."
     :!user?"База подключена. Войди или создай аккаунт: траты увидишь только ты."
     :`Вход выполнен: ${user.email}. Траты сохраняются в облаке.`;
-  const pill=$("syncState");if(pill){pill.textContent=user?"сохраняется в облаке":"только на этом телефоне";pill.className="sub "+(user?"ok-t":"");}
+  const pill=$("syncState");if(pill){pill.textContent=user?"☁ в облаке":"на телефоне";pill.className="pill "+(user?"ok-t":"");}
 }
 
 async function putTx(t){
@@ -408,15 +461,15 @@ const S=()=>demo?Object.assign({},settings,{income:settings.income||117000,debt:
 const sum=a=>a.reduce((s,t)=>s+t.amount,0);
 
 /* ---------- render ---------- */
-function limRow(name,spent,limit,period){
+function limRow(name,spent,limit,period,icon){const ic=`<span class="ic">${icon||"•"}</span>`;
   if(!limit){
     const bad=spent>0;
-    return `<div class="lim"><span class="n">${name}</span><span class="v ${bad?"bad-t":"ok-t"}">${fmt(spent)}</span>
+    return `<div class="lim">${ic}<span class="n">${name}</span><span class="v ${bad?"bad-t":"ok-t"}">${fmt(spent)}</span>
     <div class="bar ${bad?"bad":"ok"}"><i style="width:${bad?100:0}%"></i></div>
     <span class="s">${bad?"договорились без него, это срыв":"ноль, так и держи"}</span></div>`;
   }
   const p=spent/limit,c=p>1?"bad":p>.8?"warn":"ok";
-  return `<div class="lim"><span class="n">${name}</span><span class="v">${fmt(spent)} <span class="small">/ ${fmt(limit)}</span></span>
+  return `<div class="lim">${ic}<span class="n">${name}</span><span class="v">${fmt(spent)} <span class="small">/ ${fmt(limit)}</span></span>
   <div class="bar ${c}"><i style="width:${Math.min(100,p*100)}%"></i></div>
   <span class="s ${c==="ok"?"":c+"-t"}">${p>1?"перебор "+fmt(spent-limit):"осталось "+fmt(limit-spent)} ${period}</span></div>`;
 }
@@ -446,10 +499,10 @@ function render(){
   /* limits */
   const wkInM=dim/7;
   $("lims").innerHTML=
-    limRow("Еда вне дома",byCat(wk,"Еда вне дома"),s.foodWeek,"на неделю")+
-    limRow("Такси",byCat(wk,"Такси"),s.taxiWeek,"на неделю")+
-    limRow("Девушка",byCat(mo,"Девушка"),s.gfMonth,"на месяц")+
-    limRow("Связь и транспорт",byCat(mo,"Связь")+byCat(mo,"Транспорт"),s.fixedMonth,"на месяц");
+    limRow("Еда вне дома",byCat(wk,"Еда вне дома"),s.foodWeek,"на неделю","🍔")+
+    limRow("Такси",byCat(wk,"Такси"),s.taxiWeek,"на неделю","🚕")+
+    limRow("Девушка",byCat(mo,"Девушка"),s.gfMonth,"на месяц","💘")+
+    limRow("Связь и транспорт",byCat(mo,"Связь")+byCat(mo,"Транспорт"),s.fixedMonth,"на месяц","📱");
 
   /* forecast */
   const f=[];
@@ -492,7 +545,7 @@ function render(){
     $("debtBar").style.width=Math.min(100,paid/s.debt*100)+"%";
     let note=`Отдано ${fmt(paid)} из ${fmt(s.debt)}.`;
     if(left&&s.debtMonthly>0){const n=Math.ceil(left/s.debtMonthly);const d=new Date(now.getFullYear(),now.getMonth()+n,1);
-      const pm=byCat(mo,"Долг");note+=` Закроешь к ${d.toLocaleDateString("ru-RU",{month:"long",year:"numeric"})}. `+(pm>=s.debtMonthly?"План месяца выполнен.":`В этом месяце ещё ${fmt(s.debtMonthly-pm)}.`);}
+      const pm=byCat(mo,"Долг");const MP=["январе","феврале","марте","апреле","мае","июне","июле","августе","сентябре","октябре","ноябре","декабре"];note+=` Закроешь в ${MP[d.getMonth()]} ${d.getFullYear()}. `+(pm>=s.debtMonthly?"План месяца выполнен.":`В этом месяце ещё ${fmt(s.debtMonthly-pm)}.`);}
     if(!left)note="Долг закрыт. Теперь эти деньги можно откладывать себе.";
     $("debtNote").textContent=note;
   }else{$("debtLeft").textContent="—";$("debtBar").style.width="0";$("debtNote").textContent="Впиши сумму долга в настройках.";}
@@ -500,18 +553,23 @@ function render(){
   /* cats */
   const bc={};mo.filter(t=>t.cat!=="Долг").forEach(t=>bc[t.cat]=(bc[t.cat]||0)+t.amount);
   const ce=Object.entries(bc).sort((a,b)=>b[1]-a[1]),mx=ce.length?ce[0][1]:1;
-  $("cats").innerHTML=ce.length?ce.map(([c,v])=>`<div class="cat"><span>${c}</span><div class="bar"><i style="width:${v/mx*100}%"></i></div><span class="num">${fmt(v)}</span></div>`).join(""):'<p class="note">Пока пусто.</p>';
+  $("cats").innerHTML=ce.length?ce.map(([c,v])=>`<div class="cat"><span>${ICON[c]||"•"}</span><span>${c}</span><div class="bar"><i style="width:${v/mx*100}%"></i></div><span class="num">${fmt(v)}</span></div>`).join(""):'<p class="note">Пока пусто.</p>';
 
   /* filter + list */
   const used=["Все",...CATS.filter(c=>T.some(t=>t.cat===c))];
   if(!used.includes(filterCat))filterCat="Все";
-  $("filter").innerHTML=used.map(c=>`<button class="chip sm" data-f="${c}" aria-pressed="${c===filterCat}">${c}</button>`).join("");
+  $("filter").innerHTML=used.map(c=>`<button class="chip sm" data-f="${c}" aria-pressed="${c===filterCat}">${ICON[c]?ICON[c]+" ":""}${c}</button>`).join("");
   const rows=[...T].filter(t=>filterCat==="Все"||t.cat===filterCat).sort((a,b)=>b.ts-a.ts).slice(0,200);
-  $("list").innerHTML=rows.length?rows.map(t=>`<div class="tx"><span class="m">${esc(t.name)}</span><span class="a">${t.cat==="Долг"?"→ ":"−"}${fmt(t.amount)}</span>
+  $("list").innerHTML=rows.length?rows.map(t=>`<div class="tx"><span class="ic">${ICON[t.cat]||"•"}</span><span class="m">${esc(t.name)}</span><span class="a">${t.cat==="Долг"?"→ ":"−"}${fmt(t.amount)}</span>
    <div class="meta"><span>${new Date(t.ts).toLocaleString("ru-RU",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>
    <select data-id="${t.id}" aria-label="Тип траты" ${demo?"disabled":""}>${CATS.map(c=>`<option${c===t.cat?" selected":""}>${c}</option>`).join("")}</select>
    ${demo?"":`<button class="del" data-del="${t.id}">удалить</button>`}</div></div>`).join(""):'<p class="note">Пока нет ни одной траты. Нажми «Добавить траты» внизу.</p>';
 }
+
+/* ---------- pager ---------- */
+const pager=$("pager"),ptabs=[...document.querySelectorAll(".ptab")];
+ptabs.forEach(t=>t.onclick=()=>pager.scrollTo({left:pager.clientWidth*(+t.dataset.p),behavior:"smooth"}));
+pager.addEventListener("scroll",()=>{const i=Math.round(pager.scrollLeft/pager.clientWidth);ptabs.forEach((t,j)=>t.setAttribute("aria-selected",i===j));},{passive:true});
 
 /* ---------- sheets ---------- */
 function openSheet(id){$("scrim").hidden=false;$(id).hidden=false;}
@@ -519,7 +577,7 @@ function closeSheets(){$("scrim").hidden=true;$("addSheet").hidden=true;$("setSh
 $("scrim").onclick=closeSheets;
 document.querySelectorAll("[data-close]").forEach(b=>b.onclick=closeSheets);
 document.addEventListener("keydown",e=>{if(e.key==="Escape")closeSheets();});
-$("openAdd").onclick=()=>{openSheet("addSheet");setTimeout(()=>$("sms").focus(),50);};
+$("openAdd").onclick=()=>{$("mMsg").textContent="";$("parseMsg").textContent="";openSheet("addSheet");setTimeout(()=>$("sms").focus(),50);};
 $("openSet").onclick=()=>{fillSet();$("setMsg").textContent="";openSheet("setSheet");};
 function setTab(sms){$("tabSms").setAttribute("aria-pressed",sms);$("tabMan").setAttribute("aria-pressed",!sms);$("paneSms").hidden=!sms;$("paneMan").hidden=sms;}
 $("tabSms").onclick=()=>setTab(true);$("tabMan").onclick=()=>setTab(false);
@@ -561,8 +619,8 @@ $("saveSms").onclick=async()=>{
 };
 
 /* manual */
-function drawMan(){$("mCats").innerHTML=chipRow(CATS.filter(c=>c!=="Долг"),manCat,"data-mc");}
-$("mCats").addEventListener("click",e=>{const c=e.target.dataset.mc;if(c){manCat=c;drawMan();}});
+function drawMan(){$("mCats").innerHTML=CATS.filter(c=>c!=="Долг").map(c=>`<button class="tile" data-mc="${c}" aria-pressed="${c===manCat}"><b>${ICON[c]}</b>${c}</button>`).join("");}
+$("mCats").addEventListener("click",e=>{const b=e.target.closest("[data-mc]");const c=b&&b.dataset.mc;if(c){manCat=c;drawMan();}});
 $("mBtn").onclick=async()=>{
   const a=parseFloat($("mAmt").value);if(!a){$("mMsg").textContent="Укажи сумму.";return;}
   try{await putTx({id:"m"+Date.now().toString(36),amount:a,name:$("mName").value.trim()||manCat,cat:manCat,ts:Date.now(),src:"manual"});}
